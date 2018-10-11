@@ -2,10 +2,13 @@
 A simple on-demand PHP based RRD Parser to provide a very basic alternative to mrtg-rrd.cgi which is no longer supported on modern Linux systems.
 
 # Function
-This simple php script leverages on the php module rrd_graph() and does the following:
-* Checks if a cached image exists (and is not expired)
-* Generates a fresh PNG file (write to disk) and pipe that to the client - rrd_graph() does not permit direct output of image data, so has to go via an intermediate file.
+This simple php script leverages on the php module rrd_graph() and RRDGraph() depending on wether caching is desired.
+If Cached Method is selected, it leverages on rrd_graph() and does the following:
+* Checks if a cached image exists (and is not expired).
+* Generates a fresh PNG file (write to disk in "./cache/") and pipe the contents of said file to the client.
 * Cache the file for specific standard intervals (1 day, 7 days, 30 days, 1 year) for a configured time.
+ If cache is not enabled, it leverages on RRDGraph() and just directly dumps image data to the client
+* Method is notably faster as it skips any disk writes but may require more processing power as it lacks image caching.
 
 # Usage
 At the moment, it is assumed that the mrtg configuration is set up to write all RRD files in a "host"."resource".rrd format in the same directory as the script is located. The location of the rrd files can be adjusted, as long as the httpd can read the files.
@@ -22,5 +25,5 @@ The PHP file looks for the following variables in the GET request:
 
 # Issues
 * Missing proper input sanitizing
-* When multiple instances are called on a single HTML page, the graph images don't get fully loaded. As a result, you may need to refresh the page in order to get the proper graphs. Note that refreshing only works with the "cached" images as the rest is generated on the fly at all time.
+* When multiple instances are called on a single HTML page, and the "cached" method is used, the graph images don't get fully loaded. As a result, you may need to refresh the page in order to get the proper graphs. Note that refreshing only works with the "cached" images as the rest is generated on the fly at all time.
 * Start and End variables not supporting AT Time specification
