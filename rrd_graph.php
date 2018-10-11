@@ -1,4 +1,9 @@
 <?php
+// Change Change below to switch between rrd_graph() and RRDGraph().
+// - rrd_graph() requires writing to file and allows for cached images.
+// - RRDGraph() supports direct output of image without any intermediate files.
+$enablecache = false; // Set false if cpu is fast enough to not require cache.
+
 // Get params if specified in the URL - otherwise assume some sensible defaults:
 $host = isset($_GET['host']) ? htmlspecialchars($_GET['host']) : "palm";
 $res = isset($_GET['res']) ? htmlspecialchars($_GET['res']) : "wan";
@@ -96,63 +101,67 @@ $options = array(
 	"COMMENT:\\n",
 );
 
-// rrd_graph cannot output image data directly, as such we need to generate the
-// actual graph into a file and then read-in that file to output to the client.
-$fileName = "cache/" . $host . "-" . $res . "-" . $start . "-" . $end . ".png";
+// Output method section 
+// - use either rrd_graph() (enablecache = True)
+// - or use RRDGraph() (enablecache = False)
 
-// Check cache file modification time and only generate graph if expired.
-// If the data span is 1 days old, expire after 5 minutes.
-// If the data span is 30 days old, expire after 30 minutes.
-// Else expire after 2 hours.
-
-if (file_exists($fileName) && $end == 0 && in_array($start, array(1, 7, 30, 365))) {
-	// File exists and matches standards, checking modification time
-	if (time()-filemtime($fileName) > 7200) {
-		// File is more than 2 hours minutes old
-		$expired = True;
-	} elseif ($start <= 30 && time()-filemtime($fileName) > 1800) {
-		// File is more than 30 minutes old
-		$expired = True;
-	} elseif ($start <= 1 && time()-filemtime($fileName) > 300) {
-		// File is more than 5 minutes old.
-		$expired = True;
-	} else {
-		// any other cases, assume expired.
-		$expired = False;
-	};
-} else {
-	// File does not exist or not matching standards, marking as "expired"
-	$expired = True;
-};
-
-// Only generate a new graph if the Expired flag is True.
-if ($expired) {
-	rrd_graph($fileName, $options);
-	// Sleep 250ms to allow file write to complete.
-	usleep(250000);
-};
-
-// Set some expire headers so the client doesn't cache the image too long.
+// First, set expire headers so the client doesn't cache the image too long.
 header("Content-Type: image/png");
-header("Content-Length: " . filesize($fileName));
 header("Expires: 300");
 
-// Dump the png file to the client
-readfile($fileName);
+if ($enablecache) {
+	// rrd_graph cannot output image data directly, as such we need to 
+	// generate the actual graph into a file and then read-in that file to
+	// output to the client.
+	$fileName = "cache/" . $host . "-" . $res . "-" . $start . "-" . $end . ".png";
 
-//$fp = fopen($fileName, 'rb');
-//$fp = imagecreatefrompng($fileName);
-//if( $fp ) {
-//	imagepng($fp);
-//	imagedestroy($fp);
-//	fpassthru($fp);
-//	fclose($fp);
-//};
+	// Check cache file modification time and only generate graph if expired.
+	// If the data span is 1 days old, expire after 5 minutes.
+	// If the data span is 30 days old, expire after 30 minutes.
+	// Else expire after 2 hours.
 
+	if (file_exists($fileName) && $end == 0 && in_array($start, array(1, 7, 30, 365))) {
+		// File exists and matches standards, checking modification time
+		if (time()-filemtime($fileName) > 7200) {
+			// File is more than 2 hours minutes old
+			$expired = True;
+		} elseif ($start <= 30 && time()-filemtime($fileName) > 1800) {
+			// File is more than 30 minutes old
+			$expired = True;
+		} elseif ($start <= 1 && time()-filemtime($fileName) > 300) {
+			// File is more than 5 minutes old.
+			$expired = True;
+		} else {
+			// any other cases, assume expired.
+			$expired = False;
+		};
+	} else {
+		// File does not exist or not matching standards, marking as "expired"
+		$expired = True;
+	};
+	
+	// Only generate a new graph if the Expired flag is True.
+	if ($expired) {
+		rrd_graph($fileName, $options);
+		// Sleep 250ms to allow file write to complete.
+		usleep(250000);
+	};
 
-// Do not preserve/cache graphs with non-standard values
-if (!in_array($start, array(1, 7, 30, 365)) || $end != 0) {
-	unlink($fileName);
+	//header("Content-Length: " . filesize($fileName));
+
+	// Dump the png file to the client
+	readfile($fileName);
+
+	// Do not preserve/cache graphs with non-standard values
+	if (!in_array($start, array(1, 7, 30, 365)) || $end != 0) {
+		unlink($fileName);
+	};
+} else {
+	// Create the graph (no caching) and directly dump it to the client!
+	$graphObj = new RRDGraph('-');
+	$graphObj->setOptions($options);
+	$res = $graphObj->saveVerbose();
+	echo $res['image'];
 };
 
 ?>
