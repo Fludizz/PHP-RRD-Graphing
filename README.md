@@ -7,6 +7,7 @@ If Cached Method is selected, it leverages on rrd_graph() and does the following
 * Checks if a cached image exists (and is not expired).
 * Generates a fresh PNG file (write to disk in "./cache/") and pipe the contents of said file to the client.
 * Cache the file for specific standard intervals (1 day, 7 days, 30 days, 1 year) for a configured time.
+
 If cache is not enabled, it leverages on RRDGraph() and just directly dumps image data to the client
 * Method is notably faster as it skips any disk writes but may require more processing power as it lacks image caching.
 
